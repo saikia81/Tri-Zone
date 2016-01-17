@@ -5,7 +5,7 @@
       <paths name="raspberrypi">
         <serverdata>
           <mappings>
-            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$/../../i2c/python" web="/" />
+            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$/../I2C_controller" web="/" />
             <mapping deploy="Tri-Zone" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>

@@ -36,6 +36,8 @@ LIGHT_DEVICE_ADDRESS = 0x21
 SWTICH_DEVICE_ADDRESS = 0x22
 
 # light and switch matrixes, and solenoid list corresponding with the component address
+# solenoids are not in a matrix, thus the address is directly related to there position in the list
+# lights and switches address is build up from their row and column position
 light_matrix = [
     ['NOT USED', '1000 BONUS', '2000 BONUS', '3000 BONUS', '4000 BONUS', '5000 BONUS', '6000 BONUS', '7000 BONUS'],
     ['8000 BONUS', '9000 BONUS', 'NOT USED', '10000 BONUS', 'X2', 'X3', 'X4', 'X5'],
@@ -104,15 +106,18 @@ def ComponentsController(MCP23017Controller):
         self.column_value = 0
         self.row_value = 0
 
+    def turn_on_component(self, component):
+        self.turn_on_address(component.address)
+
 
 def SolenoidController(ComponentsController):
     def __init__(self, address, name):
         super(SolenoidController, self).__init__(address)
         self.set_IO_mode('output')
-        self.column_port = 'a'
-        self.row_port = 'b'
+        self.port0 = 'a'
+        self.port2 = 'b'
 
-    def turn_on(self, light_address):
+    def turn_on_address(self, light_address):
         column, row = light_address
 
         column_value = self.column_value + 2**column
@@ -122,6 +127,7 @@ def SolenoidController(ComponentsController):
         self.write_port_byte(row, row_value)
 
 
+
 def LightController(ComponentsController):
     def __init__(self, address ):
         super(SolenoidController, self).__init__(address)
@@ -129,7 +135,7 @@ def LightController(ComponentsController):
         self.port1 = 'a'
         self.port2 = 'b'
 
-    def turn_on(self, light_address):
+    def turn_on_address(self, light_address):
         column, row = light_address
 
         column_value = self.column_value + 2**column
@@ -146,23 +152,53 @@ def SwitchController(ComponentsController):
         self.column_port = 'A'
         self.row_port = 'B'
 
+    def turn_on_address(self, light_address):
+        column, row = light_address
+
+        column_value = self.column_value + 2**column
+        row_value = self.row_value + 2**row
+
+        self.write_port_byte(column, column_value)
+        self.write_port_byte(row, row_value)
+
 
 #lights, solenoids, and switches are treated as component objects
 def Component(Object):
     def __init__(self, name, address):
+        if type(address) in [tuple, list] and 0 < len(address) < 3:
+            raise ValueError("address must be a tuple or list with length: 1 or 2")
         self.name = name
         self.address = address
-        if type(address) in [tuple, list] and len(address) == 2:
-            raise ValueError("address must be a tuple or list with length: 2")
 
+lights = []
+solenoids = []
+switches = []
 
-def light(Component):
+def Light(Component):
     pass
 
 
-def solenoid(Component):
+def Solenoid(Component):
     pass
 
 
-def switch(Component):
+def Switch(Component):
     pass
+
+for light_name in light_names:
+    if light_name == 'NOT USED':
+        continue
+    light = Light(light_name, component_address[light_name])
+    lights.append(light)
+
+for switch_name in switch_names:
+    if switch_name == 'NOT USED':
+        continue
+    switch= Switch(switch_name, component_address[switch_name])
+    switches.append(switch)
+
+for solenoid_name in solenoid_names:
+    if solenoid_name == "NOT USED":
+        continue
+    solenoid = Solenoid(solenoid_name, component_address[solenoid_name])
+    solenoids.append(solenoid)
