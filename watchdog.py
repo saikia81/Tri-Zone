@@ -1,14 +1,21 @@
 #!/usr/bin/python2
 # coding=utf-8
 
-import threading
-import time
+from threading import Thread
+from time import sleep
+
 
 from I2C_controller import MCP23017Controller
 
-running = False
 
+
+#takes an address
+# starts a thread when start is called; continuously watches the device for a high and sets it low
 class Watchdog(MCP23017Controller):
+    def __init__(self, address):
+        super(Watchdog, self).__init__(address)
+        self.running = False
+
     def watch(self):
         data_a = self.read_port('a')
         data_b = self.read_port('b')
@@ -30,13 +37,17 @@ class Watchdog(MCP23017Controller):
 
     def run(self):
         global running
+        print("[+] watchdog thread started")
+        print("[+] watching address: " + repr(self.bus_address))
         running = True
         while(running == True):
             self.watch()
+            sleep(0.1)
 
     def start(self):
-        self.run()
+         self.thread = Thread(target = self.run)
+         self.thread.start()
 
 if __name__ == '__main__':
-    Watchdog(0x20).run()
+    Watchdog(0x20).start()
 
