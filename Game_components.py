@@ -1,12 +1,15 @@
 #!/usr/bin/python2
 # coding=utf-8
-
-from I2C_controller import MCP23017Controller
 import time
+from Queue import Queue
+from threading import Thread
+
+from I2C_controllers import MCP23017Controller
+
 
 # tools
 # fill in a 8x8 matrix of addresses an names
-def fill_compontent_matrix():
+def fill_component_matrix():
     matrix = list()
     for column in xrange(0, 8):
         matrix.append(list())
@@ -20,6 +23,7 @@ def fill_compontent_matrix():
     print matrix
     return matrix
 
+
 # make 1-dimension from 2-dimenions
 def collapse_2dimensional_list(two_dim_list):
     new_list = []
@@ -27,6 +31,32 @@ def collapse_2dimensional_list(two_dim_list):
         for row in range(len(two_dim_list)):
             new_list.append(two_dim_list[column][row])
     return new_list
+
+
+# doesn't actually fix anything
+# returns new row and column values
+def turn_bit_on(column_value, row_value, address):
+    address_column, address_row = 2 ** address[0], 2 ** address[1]
+    if column_value & address_column == 0:
+        column_value += address_column
+    if row_value & address_row == 0:
+        row_value += address_row
+    return column_value, row_value
+
+
+def turn_bit_off(column_value, row_value, address):
+    address_column, address_row = 2 ** address[0], 2 ** address[1]
+
+    if column_value & address_column == 0 or row_value & address_row == 0:
+        return column_value, row_value
+
+    if address_row ^ row_value != 0:
+        column_value -= address_column
+
+    if address_column ^ column_value != 0:
+        row_value -= address_row
+
+    return column_value, row_value
 
 
 # globals
@@ -90,7 +120,6 @@ for column_number, column in enumerate(switch_matrix):
 for index, name in enumerate(solenoid_names):
     component_address[name] = index
 
-
 # controllers for the solenoids, lights, and switches
 solenoides_column = 0
 solenoides_row = 0
@@ -99,106 +128,176 @@ lightes_row = 0
 switches_column = 0
 switches_row = 0
 
-def ComponentsController(MCP23017Controller):
-    def __init_(self, address, name):
+
+class ComponentsController(MCP23017Controller):
+    def __init_(self, address):
         super(ComponentsController, self).__init__(address)
 
         self.column_value = 0
         self.row_value = 0
 
-    def turn_on_component(self, component):
-        self.turn_on_address(component.address)
+
+class InputController(ComponentsController):
+    def __init__(self, address):
+        super(InputController, self).__init__(address)
+        self.set_IO_mode('output')
+        self.column_port = 'a'
+        self.row_por = 'b'
+        self.running = False
+        self.event_queue = Queue()
+
+    def get_event_queue(self):
+        return self.event_queue
+
+    def read(self):
+        pass
+
+    def start_listening(self):
+        thread = Thread(target=self.listen)
+        thread.start()
+
+    def listen(self):
+        self.running = True
+        while self.running == True:
+            self.read()
+            time.sleep(0.1)
+
+    def stop_listening(self):
+        self.running = False
 
 
-def SolenoidController(ComponentsController):
-    def __init__(self, address, name):
-        super(SolenoidController, self).__init__(address)
+class OutputController(ComponentsController):  # fix dependency issue: lights and solenoids
+    def __init__(self, address):
+        super(OutputController, self).__init__(address)
         self.set_IO_mode('output')
         self.port0 = 'a'
-        self.port2 = 'b'
+        self.port1 = 'b'
+        self.change = True
 
-    def turn_on_address(self, light_address):
-        column, row = light_address
-
-        column_value = self.column_value + 2**column
-        row_value = self.row_value + 2**row
-
-        self.write_port_byte(column, column_value)
-        self.write_port_byte(row, row_value)
+    # accepts a GameComponent; uses it's address to turn the solenoid
+    def turn_on(self, game_component):
+        self.turn_on_address(game_component.address)
 
 
-
-def LightController(ComponentsController):
-    def __init__(self, address ):
+class SolenoidController(OutputController):
+    def __init__(self, address):
         super(SolenoidController, self).__init__(address)
-        self.set_IO_mode('output')
-        self.port1 = 'a'
-        self.port2 = 'b'
+        self.port0_value = 0
+        self.port1_value = 0
+        self.port0 = 'a'
+        self.port1 = 'b'
 
-    def turn_on_address(self, light_address):
-        column, row = light_address
+    def update(self):
+        if not self.change: return  # small speed boost, if needed change port a, and b seperately
+        self.write_port(self.port0, self.port0_value)
+        self.write_port(self.port1, self.port1_value)
+        self.change = False
 
-        column_value = self.column_value + 2**column
-        row_value = self.row_value + 2**row
+    def turn_off_address(self, address):
+        if 0 > address > 16:
+            raise ValueError("[-] address has to be 0 to 15, instead address: {}".format(address))
+        address_value = 2 ** address if address <= 8 else 2 ** (address - 8)
 
-        self.write_port_byte(column, column_value)
-        self.write_port_byte(row, row_value)
+        if address <= 8:
+            if self.port0_value & address_value:
+                self.port0_value -= address_value
+                change = True
+        else:
+            if self.port1_value & address_value << 8:
+                self.port1_value -= address_value
+                change = True
+
+    def turn_on_address(self, address):
+        if 0 > address > 16:
+            raise ValueError("[-] address has to be 0 to 15, instead address: {}".format(address))
+        address_value = 2 ** address if address <= 8 else 2 ** (address - 8)
+
+        if address <= 8:
+            if not self.port0_value & address_value:
+                self.port0_value += address_value
+                change = True
+        else:
+            if not self.port1_value & address_value << 8:
+                self.port1_value += address_value
+                change = True
 
 
-def SwitchController(ComponentsController):
-    def __init__(self, address, name ):
-        super(SolenoidController, self).__init__(address, name)
-        self.set_IO_mode('input')
-        self.column_port = 'A'
-        self.row_port = 'B'
+class LightController(OutputController):
+    def __init__(self, address):
+        super(LightController, self).__init__(address)
+        self.column_value = 0
+        self.row_value = 0
+        self.column_port = 'a'
+        self.row_port = 'b'
 
-    def turn_on_address(self, light_address):
-        column, row = light_address
+    def update(self):
+        if not self.change: return
+        self.write_port(self.row_port, self.row_value)
+        self.write_port(self.column_port, self.column_value)
+        self.change = False
 
-        column_value = self.column_value + 2**column
-        row_value = self.row_value + 2**row
+    def turn_off_address(self, address):
+        column, row = address
 
-        self.write_port_byte(column, column_value)
-        self.write_port_byte(row, row_value)
+        if 0 > column > 8 or 0 > row > 8:
+            raise ValueError("[-] column and row have to be 0 to 8, instead\nrow: {}\ncolumn: {}".format(row, column))
+
+        self.column_value, self.row_value = turn_bit_off(self.column_value, self.row_value, address)
+        change = True
+
+    def turn_on_address(self, address):
+        column, row = address
+
+        if 0 > column > 8 or 0 > row > 8:
+            raise ValueError("[-] column and row have to be 0 to 8, instead\nrow: {}\ncolumn: {}".format(row, column))
+
+        self.column_value, self.row_value = turn_bit_on(self.column_value, self.row_value, address)
+        change = True
 
 
-#lights, solenoids, and switches are treated as component objects
-def Component(Object):
+class SwitchController(InputController):
+    pass
+
+
+# lights, solenoids, and switches are treated as component objects
+def device_dictionary_factory(device_names, class_object):
+    device_dic = dict()
+    for device_name in device_names:
+        if device_name == 'NOT USED':
+            continue
+        device = Light(device_name, component_address[device_name])
+        device_dic[device_name] = device
+    return device_dic
+
+
+class GameComponent(object):
     def __init__(self, name, address):
-        if type(address) in [tuple, list] and 0 < len(address) < 3:
+        if type(address) not in [tuple, list] or 0 > len(address) > 3:
             raise ValueError("address must be a tuple or list with length: 1 or 2")
         self.name = name
         self.address = address
 
-lights = []
-solenoids = []
-switches = []
 
-def Light(Component):
+# device types and instantiation
+class Light(GameComponent):
     pass
 
 
-def Solenoid(Component):
+class Solenoid(GameComponent):
     pass
 
 
-def Switch(Component):
+class Switch(GameComponent):
     pass
 
-for light_name in light_names:
-    if light_name == 'NOT USED':
-        continue
-    light = Light(light_name, component_address[light_name])
-    lights.append(light)
 
-for switch_name in switch_names:
-    if switch_name == 'NOT USED':
-        continue
-    switch= Switch(switch_name, component_address[switch_name])
-    switches.append(switch)
+# the devices are accessed by their name
+lights = device_dictionary_factory(light_names, Light)
+solenoids = device_dictionary_factory(solenoid_names, Solenoid)
+switches = device_dictionary_factory(switch_names, Switch)
+all_devices = dict().update(lights).update(solenoids).update(switches)
 
-for solenoid_name in solenoid_names:
-    if solenoid_name == "NOT USED":
-        continue
-    solenoid = Solenoid(solenoid_name, component_address[solenoid_name])
-    solenoids.append(solenoid)
+if __name__ == '__main__':
+    solenoid_controller = SolenoidController(0x20)
+    for solenoid in solenoids:
+        solenoid_controller.turn_on(solenoid)

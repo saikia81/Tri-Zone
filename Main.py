@@ -10,10 +10,10 @@ LIGHT_CONTROLLER_ADDRESS = 0X22
 
 if __name__ == '__main__':
     watchdog = Watchdog(SOLENOID_CONTROLLER_ADDRESS)
-    watchdog.run()
+    watchdog.start()
 
     try:
-        pinball = pinball(SOLENOID_CONTROLLER_ADDRESS, SWITCH_CONTROLLER_ADDRESS, LIGHT_CONTROLLER_ADDRESS)
+        pinball = pinball.Pinball(SOLENOID_CONTROLLER_ADDRESS, SWITCH_CONTROLLER_ADDRESS, LIGHT_CONTROLLER_ADDRESS)
     except Exception as ex:
         print("[-] game crashed")
         print(ex.message)
