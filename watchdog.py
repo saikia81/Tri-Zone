@@ -5,17 +5,18 @@ import datetime as dt
 from threading import Thread
 from time import sleep
 
-from I2C_controllers import MCP23017Controller, repr_binary
+from I2C_controller import MCP23017Controller, repr_binary
 
 
 # takes an address
 # starts a thread when start is called; continuously watches the device for a high and sets it low
 class Watchdog(MCP23017Controller):
-    def __init__(self, address):
+    def __init__(self, address, delay = 0.1):
         super(Watchdog, self).__init__(address)
         self.running = False
         self.device_activation_time = dict()
         self.thread = None
+        self.delay = delay
 
     def add_devices(self, devices):
         pass  # todo: add device time start to check if devices get turned off too quickly
@@ -42,7 +43,7 @@ class Watchdog(MCP23017Controller):
     def watch(self):
         self.running = True
         while self.running == True:
-            sleep(0.1)
+            sleep(self.delay)
             self.check_port('a')
             self.check_port('b')
 
