@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="raspberrypi">
+  <component name="PublishConfigData" serverName="remote school">
     <serverData>
       <paths name="raspberrypi">
         <serverdata>
           <mappings>
-            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$/../I2C_controller" web="/" />
-            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$/../I2C_controller" web="/home/pi/Tri-Zone" />
+            <mapping deploy="Tri-Zone" local="$PROJECT_DIR$" web="/home/pi/Tri-Zone" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="remote school">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$/../I2C_controller" web="/home/pi/Tri-Zone" />
+            <mapping local="$PROJECT_DIR$" web="/home/pi/Tri-Zone" />
           </mappings>
         </serverdata>
       </paths>

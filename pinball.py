@@ -378,14 +378,13 @@ class Game(object):
         game_methods[event.name](self)  # calls an appropriate function for the event
 
     def start(self):
-        series(self) # reset solenoids at start of the game
+        series(self) # reset solenoids at start of the game. todo: change this, for score's sakes
         i = 0 # loop debugging
         while not self.game_has_ended:
             #debugging
             print("loop " + str(i))
             if not event_handler.has_event():
-                logger.info("game: waiting for event...")
-
+                logger.debug("game: waiting for event")
 
             logger.info("score: {}".format(str(self.score)))  # log the score
 
@@ -395,10 +394,12 @@ class Game(object):
             except Exception as ex:
                 logger.critical("couldn't get event: {}".format(ex.message))
 
-            # hadnles components that should be turned off or on later
+            # handles components that should be turned off or on later
             self.check_delayed_components()
             check_score(self)
             self.check_end()
+
+            # set the score
             display_controller.set_score(self.score)
 
             # updating all controllers every (few) game tick

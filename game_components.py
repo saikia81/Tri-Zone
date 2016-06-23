@@ -10,7 +10,7 @@ fileConfig('logger.conf', defaults={'logfilename': 'Tri-Zone.log'})
 from Queue import Queue
 from threading import Thread
 
-from I2C_controller import  MCP23017Controller, repr_binary  # todo: change controllertester
+from I2C_controller import MCP23017Controller, repr_binary  # todo: change controllertester
 
 # tools
 # fill in a 8x8 matrix of addresses and names
@@ -33,8 +33,8 @@ def fill_component_matrix():
 # collapses a two dimensional list
 def collapse_matrix(two_dim_list):
     new_list = []
-    for column in range(len(two_dim_list)):
-        for row in range(len(two_dim_list)):
+    for column in xrange(len(two_dim_list)):
+        for row in xrange(len(two_dim_list)):
             new_list.append(two_dim_list[column][row])
     return new_list
 
