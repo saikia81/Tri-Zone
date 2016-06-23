@@ -537,7 +537,7 @@ class Switch(GameComponent):
     def __init__(self, name, address, active = False):
         if type(address) not in [tuple, list] or 0 > len(address) > 3:
             raise ValueError("gc: address must be a tuple or list with length: 1 or 2")
-        super(Switch, self).__init__(name, address, active) # super should always be called before any var assignment
+        super(Switch, self).__init__(name, address, active)  # super should always be called before any var assignment
         self.controller = switch_controller
 
 # the components are accessed by their name
@@ -559,7 +559,8 @@ if __name__ == '__main__':
         light.turn_on()
 
     #tests all solenoids, by setting them on
-    raw_input("gc: lookout! this will turn on all solenoids, are you sure you want to continue?")
+    if raw_input("gc: lookout! this will slowly turn on all solenoids, are you sure you want to continue?").lower() not in ['y','yes']:
+        exit()
     for solenoid in solenoids.values():
         time.sleep(2)
         solenoid.turn_on()
